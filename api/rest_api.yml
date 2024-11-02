@@ -1,0 +1,387 @@
+openapi: 3.0.0
+info:
+  title: Social Network API
+  description: API для социальной сети, где пользователи могут публиковать посты о путешествиях, оценивать и комментировать их, а также подписываться на других пользователей.
+  version: 1.0.0
+servers:
+  - url: https://api.travelnetwork.com
+    description: Production server
+
+tags:
+  - name: Posts
+  - name: Users
+  - name: Feeds
+  - name: Places
+
+paths:
+  /posts:
+    post:
+      tags:
+        - Posts
+      summary: Создать пост
+      description: Публикация поста с фотографиями и описанием места.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                posts:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      title:
+                        type: string
+                        maxLength: 255
+                      text:
+                        type: string
+                        maxLength: 4000
+                      author:
+                        type: string
+                      geo:
+                        type: string
+                        maxLength: 50
+                      photos:
+                        type: array
+                        items:
+                          type: string
+                          format: binary
+                          maxLength: 1048576  # 1MB
+                          maxItems: 10
+      responses:
+        '201':
+          description: Пост успешно создан
+        '400':
+          description: Неверные параметры
+        '429':
+          description: Превышены лимиты на публикацию постов
+        '500':
+          description: Server error
+
+  /posts/{postId}:
+    get:
+      tags:
+        - Posts
+      summary: Получить пост с комментариями и рейтингом, и фото
+      description: Получение поста с его комментариями и рейтингом и фото.
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Пост с комментариями
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  posts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 123
+                        title:
+                          type: string
+                          example: "Test Post"
+                        text:
+                          type: string
+                          example: "Very long text"
+                        author:
+                          type: string
+                          example: "Bob Bill"
+                        geo:
+                          type: string
+                          example: "USSR"
+                        rating:
+                          type: number
+                          format: float
+                          example: 5.0
+                        photos:
+                          type: array
+                          items:
+                            type: string
+                            format: base64
+                            example: "base64"
+                        comments:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                                example: 111
+                              post_id:
+                                type: integer
+                                example: 123
+                              text:
+                                type: string
+                                maxLength: 250
+                                example: "Long comment"
+                              author:
+                                type: string
+                                example: "Joe Nok"
+                              date:
+                                type: string
+                                format: date-time
+        '404':
+          description: Пост не найден
+        '500':
+          description: Server error
+
+  /posts/{postId}/ratings:
+    post:
+      tags:
+        - Posts
+      summary: Оценить пост
+      description: Поставить оценку посту.
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating:
+                  type: number
+                  format: decimal
+                  maximum: 5.0
+      responses:
+        '201':
+          description: Пост оценен
+        '404':
+          description: Пост не найден
+        '429':
+          description: Превышены лимиты на оценку постов
+        '500':
+          description: Server error
+
+  /posts/{postId}/comments:
+    post:
+      tags:
+        - Posts
+      summary: Добавить комментарий к посту
+      description: Добавление комментария к посту.
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  example: 111
+                post_id:
+                  type: integer
+                  example: 123
+                text:
+                  type: string
+                  maxLength: 250
+                  example: "Long comment"
+                author:
+                  type: string
+                  example: "Joe Nok"
+                date:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Комментарий добавлен
+        '404':
+          description: Пост не найден
+        '429':
+          description: Превышены лимиты на комментарии
+        '500':
+          description: Server error
+
+  /users/{userId}/subscribe:
+    post:
+      tags:
+        - Users
+      summary: Подписаться на пользователя
+      description: Подписка на другого пользователя для отслеживания его активности.
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Подписка оформлена
+        '404':
+          description: Юзер не найден
+        '429':
+          description: Превышены лимиты на подписки
+        '500':
+          description: Server error
+
+  /feeds/{userId}:
+    get:
+      tags:
+        - Feeds
+      summary: Просмотр ленты
+      description: Просмотр ленты других юзеров с пагинацией.
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: integer
+          description: ID юзера которого будем смотреть ленту
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Номер страницы для пагинации
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            default: 10
+            maximum: 20
+          description: Количество постов на странице
+      responses:
+        '200':
+          description: Лента постов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  posts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 123
+                        title:
+                          type: string
+                          example: "Test Post"
+                        text:
+                          type: string
+                          example: "Very long text"
+                        author:
+                          type: string
+                          example: "Bob Bill"
+                        geo:
+                          type: string
+                          example: "USSR"
+                        rating:
+                          type: number
+                          format: float
+                          example: 5.0
+                        photos:
+                          type: array
+                          items:
+                            type: string
+                            format: base64
+                            example: "base64"
+        '404':
+          description: Юзер не найден
+        '500':
+          description: Server error
+
+  /places/popular:
+    get:
+      tags:
+        - Places
+      summary: Найти популярные места
+      description: Поиск популярных мест для путешествий.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Номер страницы для пагинации
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            default: 10
+            maximum: 20
+          description: Количество популярных мест на странице
+        - in: query
+          name: rating
+          schema:
+            type: integer
+            default: 5
+          description: Рейтинг мест для отображения
+      responses:
+        '200':
+          description: Список популярных мест и постов к ним
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  places:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        name:
+                          type: string
+                          example: "Red Square"
+                        location:
+                          type: string
+                          example: "Moscow"
+                        posts:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                                example: 123
+                              title:
+                                type: string
+                                example: "Test Post"
+                              text:
+                                type: string
+                                example: "Very long text"
+                              author:
+                                type: string
+                                example: "Bob Bill"
+                              geo:
+                                type: string
+                                example: "USSR"
+                              rating:
+                                type: number
+                                format: float
+                                example: 5.0
+                              photos:
+                                type: array
+                                items:
+                                  type: string
+                                  format: base64
+                                  example: "base64"
+        '500':
+          description: Server error
